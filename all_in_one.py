@@ -379,18 +379,18 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
             )
         process3.wait()
 
-    # # Remover arquivos temporarios
-    # if os.path.isfile(f'{_dir}/content/result/tempCommand1File'):
-    #     os.remove(f'{_dir}/content/result/tempCommand1File')
-    # if os.path.isfile(f'{_dir}/content/result/tempCommand2File'):
-    #     os.remove(f'{_dir}/content/result/tempCommand2File')
-    # # Remover arquivos intermediários
-    # if os.path.isfile(fatcatFile):
-    #     os.remove(fatcatFile)
-    # if os.path.isfile(tmalignFile):
-    #     os.remove(tmalignFile)
-    # if os.path.isfile(lovoalignFile):
-    #     os.remove(lovoalignFile)
+    # Remover arquivos temporarios
+    if os.path.isfile(f'{_dir}/content/result/tempCommand1File'):
+        os.remove(f'{_dir}/content/result/tempCommand1File')
+    if os.path.isfile(f'{_dir}/content/result/tempCommand2File'):
+        os.remove(f'{_dir}/content/result/tempCommand2File')
+    # Remover arquivos intermediários
+    if os.path.isfile(fatcatFile):
+        os.remove(fatcatFile)
+    if os.path.isfile(tmalignFile):
+        os.remove(tmalignFile)
+    if os.path.isfile(lovoalignFile):
+        os.remove(lovoalignFile)
     
     print('Your task has been completed!')
     

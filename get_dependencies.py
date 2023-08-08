@@ -19,7 +19,7 @@ def get_dependencies(_dir):
         #subprocess.run(["git", "clone", "https://github.com/GodzikLab/FATCAT-dist.git"])
         #subprocess.run(['bash', '-c', 'cd FATCAT-dist; ./Install']) 
         os.system("if [ ! -d FATCAT-dist ]; then \
-             git clone https://github.com/GodzikLab/FATCAT-dist.git; \
+             git clone https://github.com/leokbral/FATCAT-dist.git; \
              cd FATCAT-dist/; ./Install; \
            fi")
         
@@ -45,7 +45,7 @@ def get_dependencies(_dir):
     if not os.path.exists('remolog'):
         #subprocess.run(["git", "clone", "https://github.com/tetsufmbio/remolog.git"])
         print('&'*64, 'Download some scripts and model')
-        os.system('git clone https://github.com/tetsufmbio/remolog.git')
+        os.system('git clone https://github.com/leokbral/remolog.git')
     
     os.chdir(_dir+'/content/programs')
     # if not os.path.exists('foldseek'):
