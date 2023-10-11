@@ -5,22 +5,16 @@ import shutil
 
 from get_dependencies import get_dependencies
 from create_database import create_database
-# from running_protein_structure_alignment import running_proteins_structure #COMENTAR
-# from parallel_test import parallel_test
-# from new import run_script
-# from paral import run_script
-# from rpsa import running_proteins_structure
-# from fatcat_function import running_proteins_structure#, running_fatcat_parallel #DESCOMENTAR
-# from tmalign_function import running_proteins_structure
-# from lovoalign_function import running_proteins_structure
 from all_in_one import running_proteins_structure
-# from fatcat_function import *
+
 
 # identifica a pasta atual do script
 _dir = os.path.dirname(os.path.abspath(__file__))
 
 # define a pasta atual como o diretório de trabalho padrão
 os.chdir(_dir)
+if not os.path.exists(f'{_dir}/content/tmpDir'):
+    os.makedirs(f'{_dir}/content/tmpDir')
 
 @click.command()
 @click.option('--screening', prompt='Choose an option for Screening software',
@@ -44,15 +38,24 @@ os.chdir(_dir)
               type=int, default=12,
               help='Number of processors to use for parallel processing.')
 
+# @click.option('--temp-dir', prompt='Enter the temporary directory path (leave blank for no temporary directory)',
+#               type=click.Path(file_okay=False, writable=True, resolve_path=True), default='',
+#               help='Directory to store temporary files.')
+
+@click.option('--temp_dir', type=click.Path(exists=True), required=False, default=f'{_dir}/content/tmpDir')
 @click.argument('input_dir', type=click.Path(exists=True), required=False)
-def main(screening, num_analyze, database, job_name, num_processors, input_dir):
+def main(screening, num_analyze, database, job_name, num_processors, temp_dir, input_dir):
+    if not os.path.exists(temp_dir):
+       os.makedirs(temp_dir) 
+
     if input_dir:
-        process_files(screening, num_analyze, database, job_name, num_processors, input_dir)
+        tmp_dir_path = os.environ.get('TMP_DIR_PATH', '')
+        process_files(screening, num_analyze, database, job_name, num_processors, temp_dir, os.environ.get('TMP_DIR_PATH', ''), input_dir, tmp_dir_path)
     else:
-        prompt_inputs(screening, num_analyze, database, job_name, num_processors)
+        prompt_inputs(screening, num_analyze, database, job_name, num_processors, temp_dir)
 
 
-def process_files(screening, num_analyze, database, job_name, num_processors, input_dir):
+def process_files(screening, num_analyze, database, job_name, num_processors, temp_dir, temp_dir_input, input_dir, tmp_dir_path):
     print(f'The chosen option was {screening}')
     print(f"Number of protein structures to analyze: {num_analyze}")
     print(f'Protein structure database to be used: {database}')
@@ -76,7 +79,8 @@ def process_files(screening, num_analyze, database, job_name, num_processors, in
 
     if not os.path.exists(f'{_dir}/content'):
         os.makedirs(f'{_dir}/content')
-        os.makedirs(f'{_dir}/content/input/')####
+        os.makedirs(f'{_dir}/content/input/')
+        # os.makedirs(f'{_dir}/content/tmpDir')####
 
     input_dest = os.path.join(_dir, 'content', 'input/')####
     if input_dir:
@@ -84,6 +88,11 @@ def process_files(screening, num_analyze, database, job_name, num_processors, in
             file_path = os.path.join(input_dir, file_name)
             if os.path.isfile(file_path):
                 shutil.copy(file_path, input_dest)
+    
+    # if temp_dir:
+    #     os.environ['TMP_DIR'] = temp_dir
+    # else:
+    #     os.environ['TMP_DIR'] = f'{_dir}/content/tmp/'
 
     subprocess.run(['bash', '-c', 'cd ./content/ && if [ ! -d bin ]; then mkdir bin; fi'])
     subprocess.run(['bash', '-c', 'cd ./content/ && if [ ! -d programs ]; then mkdir programs; fi'])
@@ -92,20 +101,38 @@ def process_files(screening, num_analyze, database, job_name, num_processors, in
 
     get_dependencies(_dir)
     create_database(_dir, database)
-    running_proteins_structure(_dir, screening, database, num_analyze, annot, num_processors)
-    # running_fatcat_parallel(_dir, screening, database, num_analyze, annot)
-    # fatcattest(_dir, screening, database, num_analyze, annot)
-    # parallel_test(_dir, screening, database, num_analyze, annot)
-    # run_script(_dir, screening, database, num_analyze, annot)
+    running_proteins_structure(_dir, screening, database, num_analyze, annot, num_processors, temp_dir_input)
+   
 
 
-
-def prompt_inputs(screening, num_analyze, database, job_name, num_processors):
+def prompt_inputs(screening, num_analyze, database, job_name, num_processors, temp_dir):
     print(f'The chosen option was {screening}')
     print(f"Number of protein structures to analyze: {num_analyze}")
     print(f'Protein structure database to be used: {database}')
     print(f'jobName to be used: {job_name}')
     print(f'Number of processors choosed: {num_processors}')
+    
+    while True:
+        temp_dir_input = click.prompt('Enter the temporary directory path (leave blank for no change)',
+                                      default=temp_dir, type=click.Path(file_okay=False, writable=True, resolve_path=True))
+        
+        if not temp_dir_input:
+            break
+    
+        if os.path.exists(temp_dir_input) and os.path.isdir(temp_dir_input):
+            os.environ['TMP_DIR_PATH'] = temp_dir_input  # Set the environment variable
+            break
+        else:
+            create_dir = click.confirm(f'The path "{temp_dir_input}" is not a valid directory. Would you like to create this directory?', default=False)
+            if create_dir:
+                try:
+                    os.makedirs(temp_dir_input)
+                    os.environ['TMP_DIR_PATH'] = temp_dir_input  # Set the environment variable
+                    break
+                except Exception as e:
+                    print(f'Error creating the directory: {e}')
+            else:
+                print('Enter a valid path or leave it blank.')
 
     while True:
         input_dir = click.prompt('Enter the input directory path', type=click.Path(exists=True))
@@ -114,7 +141,7 @@ def prompt_inputs(screening, num_analyze, database, job_name, num_processors):
         else:
             print(f'Error: Path "{input_dir}" is not a directory or does not exist.')
 
-    process_files(screening, num_analyze, database, job_name, input_dir)
+    process_files(screening, num_analyze, database, job_name, num_processors, temp_dir, temp_dir_input, input_dir, os.environ.get('TMP_DIR_PATH', ''))
 
 
 if __name__ == '__main__':
