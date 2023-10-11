@@ -2,47 +2,57 @@ import os
 import subprocess
 import glob
 import time
+import shutil
 
-def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_processors):
+def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_processors, TMP_DIR_PATH):
     start_alltask_time = time.time()
     def get_num_lines(file_path):
         with open(file_path, "r") as file:
             return sum(1 for _ in file)
     print('*'*64, 'inside running proteins structure')
     os.chdir(_dir+'/content/input')
-    if os.path.isfile(f'{_dir}/content/result/result.tab'):
-        os.remove(f'{_dir}/content/result/result.tab')
-    if os.path.isfile(f'{_dir}/content/result/tmalign_formatted.tab'):
-        os.remove(f'{_dir}/content/result/tmalign_formatted.tab')
-    if os.path.isfile(f'{_dir}/content/result/fatcat_formatted.tab'):
-        os.remove(f'{_dir}/content/result/fatcat_formatted.tab')
-    if os.path.isfile(f'{_dir}/content/result/lovoalign_formatted.tab'):
-        os.remove(f'{_dir}/content/result/lovoalign_formatted.tab')
+
+    tmp_dir_path = os.environ.get('TMP_DIR_PATH')
+    print(tmp_dir_path)
+    print(tmp_dir_path)
+    print(tmp_dir_path)
+    print(tmp_dir_path)
+
+
+    if os.path.isfile(f'{tmp_dir_path}/result.tab'):
+        os.remove(f'{tmp_dir_path}/result.tab')
+    if os.path.isfile(f'{tmp_dir_path}/tmalign_formatted.tab'):
+        os.remove(f'{tmp_dir_path}/tmalign_formatted.tab')
+    if os.path.isfile(f'{tmp_dir_path}/fatcat_formatted.tab'):
+        os.remove(f'{tmp_dir_path}/fatcat_formatted.tab')
+    if os.path.isfile(f'{tmp_dir_path}/lovoalign_formatted.tab'):
+        os.remove(f'{tmp_dir_path}/lovoalign_formatted.tab')
 
    
     if SCREEN == "foldseek":
         for f in os.listdir():
-                os.system(f"{_dir}/content/programs/foldseek/bin/foldseek easy-search {f} {_dir}/content/foldseek_data/fs_{DATABASE} {_dir}/content/result/screening/tmp.tab.fmt {_dir}/content/tmpFolder --max-seqs {HEADN} -e inf")
-                os.system((f"cut -f 1,2 {_dir}/content/result/screening/tmp.tab.fmt | sort | uniq | perl -ne '@a = split(/\\./, $_); print join(\".\", @a[0 .. $#a-1]).\"\\n\";' > {_dir}/content/result/screening/{f}.tab.fmt"))
-                os.remove(f"{_dir}/content/result/screening/tmp.tab.fmt")
+                os.system(f"{_dir}/content/programs/foldseek/bin/foldseek easy-search {f} {_dir}/content/foldseek_data/fs_{DATABASE} {tmp_dir_path}/tmp.tab.fmt {_dir}/content/tmpFolder --max-seqs {HEADN} -e inf")
+                os.system((f"cut -f 1,2 {tmp_dir_path}/tmp.tab.fmt | sort | uniq | perl -ne '@a = split(/\\./, $_); print join(\".\", @a[0 .. $#a-1]).\"\\n\";' > {tmp_dir_path}/{f}.tab.fmt"))
+                # os.remove(f"{tmp_dir_path}/tmp.tab.fmt")
     
         print('Finished running foldseek screening')
 
 #_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
 
     if SCREEN == "fatcat":
+        start_time_fatcat = time.time()
         files = subprocess.check_output("ls", cwd=f"{_dir}/content/input", shell=True).decode().split("\n")[:-1]
 
         database_file = f"{_dir}/content/database/list_{DATABASE}.tab"
         with open(database_file, "r") as db:
             database_lines = [line.strip() for line in db.readlines()]  # Lê as linhas do arquivo de banco de dados
 
-        fatcat_commands_file = f"{_dir}/fatcat_commands.txt"  # Arquivo para os comandos FATCATSearch.pl
+        fatcat_commands_file = f"{tmp_dir_path}/fatcat_commands.txt"  # Arquivo para os comandos FATCATSearch.pl
 
         with open(fatcat_commands_file, "w") as file:
             for f in files:
                 for line in database_lines:
-                    subject = os.path.join(_dir, "content", "database", DATABASE, line + ".pdb")  # Constrói o caminho completo do subject
+                    # subject = os.path.join(_dir, "content", "database", DATABASE, line + ".pdb")  # Constrói o caminho completo do subject
                     fatcat_command = [
                         f'{_dir}/content/programs/FATCAT-dist/FATCATMain/FATCAT',
                         '-p1',
@@ -63,7 +73,7 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
 
         # Processar os resultados individualmente para cada estrutura de entrada
         for f in files:
-            tab_file = f"{_dir}/content/result/screening/{f}.tab.fmt"
+            tab_file = f"{tmp_dir_path}/{f}.tab.fmt"
 
             sort_command = ["sort", "-k11nr"]
             head_command = ["head", "-n", str(HEADN)]
@@ -87,16 +97,16 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
             with open(tab_file, "w") as file:
                 file.write(formatted_output)
 
-        fmt_files = glob.glob(f"{_dir}/content/result/screening/*.fmt")
-        with open(f"{_dir}/content/result/fatcat_formatted.tab", "w") as output_file:
+        fmt_files = glob.glob(f"{tmp_dir_path}/*.fmt")
+        with open(f"{tmp_dir_path}/fatcat_formatted.tab", "w") as output_file:
             for fmt_file in fmt_files:
                 with open(fmt_file, "r") as input_file:
                     output_file.write(input_file.read())
 
         print('Finished running fatcat screening')
 
-        end_time = time.time()  # Registrar o tempo de término da execução
-        execution_time = end_time - start_time  # Calcular o tempo total de execução
+        end_time_fatcat = time.time()  # Registrar o tempo de término da execução
+        execution_time = end_time_fatcat - start_time_fatcat  # Calcular o tempo total de execução
         print(f"Total execution time: {execution_time} seconds")
 
 #_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
@@ -105,7 +115,7 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
         start_time = time.time()
         files = subprocess.check_output("ls", cwd=f"{_dir}/content/input", shell=True).decode().split("\n")[:-1]
 
-        tmalign_commands_file = f"{_dir}/tmalign_commands.txt"  # Arquivo para os comandos do TMalign
+        tmalign_commands_file = f"{tmp_dir_path}/tmalign_commands.txt"  # Arquivo para os comandos do TMalign
 
         # Ler a lista de nomes de proteínas do banco de dados
         database_file = f"{_dir}/content/database/list_{DATABASE}.tab"
@@ -118,7 +128,7 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
                 for subject in database_lines:
                     tmalign_input_file = f"{_dir}/content/input/{f}"
                     tmalign_subject_file = f"{_dir}/content/database/{DATABASE}/{subject}.pdb"
-                    parser_output_file = f"{_dir}/content/result/screening/{f}.tab"  # Arquivo para salvar a saída do parser
+                    parser_output_file = f"{tmp_dir_path}/{f}.tab"  # Arquivo para salvar a saída do parser
 
                     # Concatenar os comandos com o operador de pipeline "|"
                     cmd = f"{_dir}/content/bin/TMalign {tmalign_input_file} {tmalign_subject_file} | perl {_dir}/content/programs/remolog/scripts/parser_TMalign.pl - >> {parser_output_file}\n"
@@ -127,12 +137,12 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
         # Executa os comandos usando o parallel
         with open(tmalign_commands_file, "r") as file:
             parser_output = subprocess.check_output(["parallel", "-j", str(num_processors)], stdin=file).decode()
-        tab_file = f"{_dir}/content/result/screening/" + f + ".tab"
+        tab_file = f"{tmp_dir_path}/" + f + ".tab"
         with open(tab_file, "a") as file:
             file.write(parser_output)
         
         for f in files:
-            parser_output_file = f"{_dir}/content/result/screening/{f}.tab"
+            parser_output_file = f"{tmp_dir_path}/{f}.tab"
             sort_output = subprocess.check_output(["sort", "-k3nr", str(parser_output_file)]).decode()
             grep_output = subprocess.check_output(["grep", "-e", f], input=sort_output.encode()).decode()
             head_output = subprocess.check_output(["head", "-n", str(HEADN)], input=grep_output.encode()).decode()
@@ -158,10 +168,10 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
                         fmt_file.write("\t".join(columns) + "\n")
         
         # Juntar os arquivos formatados em um único arquivo final .tab
-        fmt_files = [file for file in os.listdir(f"{_dir}/content/result/screening") if file.endswith(".fmt")]
-        with open(f"{_dir}/content/result/tmalign_formatted.tab", "w") as output_file:
+        fmt_files = [file for file in os.listdir(f"{tmp_dir_path}") if file.endswith(".fmt")]
+        with open(f"{tmp_dir_path}/tmalign_formatted.tab", "w") as output_file:
             for fmt_file in fmt_files:
-                with open(os.path.join(f"{_dir}/content/result/screening", fmt_file), "r") as input_file:
+                with open(os.path.join(f"{tmp_dir_path}", fmt_file), "r") as input_file:
                     lines = input_file.readlines()
                     output_file.write("".join(lines))
 
@@ -178,15 +188,15 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
 
     if SCREEN != "fatcat":
         start_time_fatcat = time.time()
-        fatcatFile = f'{_dir}/content/result/fatcat_formatted.tab'
+        fatcatFile = f'{tmp_dir_path}/fatcat_formatted.tab'
     
         if os.path.isfile(fatcatFile):
             os.remove(fatcatFile)
-        fatcat_commands_file = f"{_dir}/fatcat_commands.txt"
+        fatcat_commands_file = f"{tmp_dir_path}/fatcat_commands.txt"
         # Cria um arquivo temporário para armazenar os comandos do FatCat
         with open(fatcat_commands_file, 'w') as file:
             for f in os.listdir('.'):
-                with open(f'{_dir}/content/result/screening/{f}.tab.fmt') as fatcatFileInputFile:
+                with open(f'{tmp_dir_path}/{f}.tab.fmt') as fatcatFileInputFile:
                     for l in fatcatFileInputFile.readlines():
                         columns = l.split('\t')
                         if len(columns) > 1:
@@ -204,11 +214,11 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
             subprocess.run(["parallel", "-j", str(num_processors)], stdin=file, capture_output=True, text=True).stdout
     
       
-        if os.path.isfile(f'{_dir}/fatcat_commands.txt'):
-            os.remove(f'{_dir}/fatcat_commands.txt')
+        if os.path.isfile(f'{tmp_dir_path}/fatcat_commands.txt'):
+            os.remove(f'{tmp_dir_path}/fatcat_commands.txt')
     
-        if os.path.isfile(f'{_dir}/content/result/tmpfatcatfile'):
-            os.remove(f'{_dir}/content/result/tmpfatcatfile')
+        if os.path.isfile(f'{tmp_dir_path}tmpfatcatfile'):
+            os.remove(f'{tmp_dir_path}tmpfatcatfile')
     
         
         end_time_fatcat = time.time()  # Registrar o tempo de término da execução
@@ -220,9 +230,9 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
 
     if SCREEN != "tmalign":
         start_tmalign_time = time.time()
-        tmalignFile = f"{_dir}/content/result/tmalign_formatted.tab"
-        tmalignOutput = f"{_dir}/content/result/tmalign.tab"
-        tmalign_commands_file = f"{_dir}/tmalign_commands.txt"
+        tmalignFile = f"{tmp_dir_path}/tmalign_formatted.tab"
+        tmalignOutput = f"{tmp_dir_path}/tmalign.tab"
+        tmalign_commands_file = f"{tmp_dir_path}/tmalign_commands.txt"
         if os.path.isfile(tmalignFile):
             os.remove(tmalignFile)
 
@@ -231,7 +241,7 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
 
         # Loop pelos arquivos .tab.fmt para gerar os comandos TMalign e armazená-los na lista
         for f in os.listdir('.'):
-            with open(f'{_dir}/content/result/screening/{f}.tab.fmt') as tmalignInputFile:
+            with open(f'{tmp_dir_path}/{f}.tab.fmt') as tmalignInputFile:
                 for line in tmalignInputFile.readlines():
                     columns = line.split('\t')
                     if len(columns) > 1:
@@ -282,24 +292,24 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
     start_lovoalign_time = time.time()
 
     if SCREEN != "lovoalign":
-        lovoalignFile = f'{_dir}/content/result/lovoalign_formatted.tab'
-        tempLovoalignFile = f'{_dir}/content/result/tempLovoalignFile.tab'
+        lovoalignFile = f'{tmp_dir_path}/lovoalign_formatted.tab'
+        tempLovoalignFile = f'{tmp_dir_path}/tempLovoalignFile.tab'
     
         if os.path.isfile(lovoalignFile):
             os.remove(lovoalignFile)
     
-        lovoalign_commands_file = f"{_dir}/lovoalign_commands.txt"
+        lovoalign_commands_file = f"{tmp_dir_path}/lovoalign_commands.txt"
         # Criar arquivo externo para armazenar os comandos do lovoalign
         with open(lovoalign_commands_file, 'w') as file:
             for f in os.listdir('.'):
-                with open(f'{_dir}/content/result/screening/{f}.tab.fmt') as lovoalignInputFile:
+                with open(f'{tmp_dir_path}/{f}.tab.fmt') as lovoalignInputFile:
                     for l in lovoalignInputFile.readlines():
                         columns = l.split('\t')
                         if len(columns) > 1:
                             l = columns[1].strip()
     
                                           
-                        parser_output_file = f"{_dir}/content/result/lovotemp.tab"
+                        parser_output_file = f"{tmp_dir_path}/lovotemp.tab"
                         cmd = f"{_dir}/content/bin/lovoalign -p1 {_dir}/content/input/{f} -p2 {_dir}/content/database/{DATABASE}/{l}.pdb | perl {_dir}/content/programs/remolog/scripts/parser_lovoalign.pl - >> {lovoalignFile}\n"
                         file.write(cmd)
     
@@ -322,20 +332,22 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
     
         if os.path.isfile(lovoalign_commands_file):
             os.remove(lovoalign_commands_file)
-    
+
+        # if os.path.isfile(lovoalignFile):
+        #     os.remove(lovoalignFile)
          
         end_lovoalign_time = time.time()  # Registrar o tempo de término da execução
         execution_lovoalign_time = end_lovoalign_time - start_lovoalign_time  # Calcular o tempo total de execução
         print(f"Total execution time of lovoalign: {execution_lovoalign_time} seconds")
 
-        print('Finished running lovoalign')
+        print('Finished running !lovoalign')
 
 #_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
 
     result_dir = f"{_dir}/content/result"
-    fatcat_file = f"{result_dir}/fatcat_formatted.tab"
-    tmalign_file = f"{result_dir}/tmalign_formatted.tab"
-    lovoalign_file = f"{result_dir}/lovoalign_formatted.tab"
+    fatcat_file = f"{tmp_dir_path}/fatcat_formatted.tab"
+    tmalign_file = f"{tmp_dir_path}/tmalign_formatted.tab"
+    lovoalign_file = f"{tmp_dir_path}/lovoalign_formatted.tab"
     result_file = f"{result_dir}/result.tab"
    
     command1 = [
@@ -347,28 +359,28 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
     processtest = subprocess.Popen(command1, stdout=subprocess.PIPE)
     tempCommand1File, _ = processtest.communicate()
                     
-    with open(f'{_dir}/content/result/tempCommand1File', 'a') as fatcatOutputFile:
+    with open(f'{tmp_dir_path}/tempCommand1File', 'a') as fatcatOutputFile:
         fatcatOutputFile.write(tempCommand1File.decode())
         
 
     command2 = [
         "perl",
         f"{_dir}/content/programs/remolog/scripts/join_table.pl",
-        f'{_dir}/content/result/tempCommand1File',
+        f'{tmp_dir_path}/tempCommand1File',
         lovoalign_file,
     ]
 
     processtest2 = subprocess.Popen(command2, stdout=subprocess.PIPE)
     tempCommand2File, _ = processtest2.communicate()
                 
-    with open(f'{_dir}/content/result/tempCommand2File', 'a') as fatcatOutputFile2:
+    with open(f'{tmp_dir_path}/tempCommand2File', 'a') as fatcatOutputFile2:
         fatcatOutputFile2.write(tempCommand2File.decode())
     
     # Executar command3 usando o arquivo temporário como entrada
     command3 = [
         "perl",
         f"{_dir}/content/programs/remolog/scripts/add_scope_class.pl",
-        f'{_dir}/content/result/tempCommand2File',
+        f'{tmp_dir_path}/tempCommand2File',
         ANNOT,
     ]
 
@@ -380,17 +392,20 @@ def running_proteins_structure (_dir, SCREEN, DATABASE, HEADN, ANNOT, num_proces
         process3.wait()
 
     # Remover arquivos temporarios
-    if os.path.isfile(f'{_dir}/content/result/tempCommand1File'):
-        os.remove(f'{_dir}/content/result/tempCommand1File')
-    if os.path.isfile(f'{_dir}/content/result/tempCommand2File'):
-        os.remove(f'{_dir}/content/result/tempCommand2File')
+    if os.path.isfile(f'{tmp_dir_path}/tempCommand1File'):
+        os.remove(f'{tmp_dir_path}/tempCommand1File')
+    if os.path.isfile(f'{tmp_dir_path}/tempCommand2File'):
+        os.remove(f'{tmp_dir_path}/tempCommand2File')
     # Remover arquivos intermediários
-    if os.path.isfile(fatcatFile):
-        os.remove(fatcatFile)
-    if os.path.isfile(tmalignFile):
-        os.remove(tmalignFile)
+    # if os.path.isfile(fatcatFile):
+    #     os.remove(fatcatFile)
+    # if os.path.isfile(tmalignFile):
+    #     os.remove(tmalignFile)
     if os.path.isfile(lovoalignFile):
         os.remove(lovoalignFile)
+    
+    if tmp_dir_path and os.path.exists(tmp_dir_path) and os.path.isdir(tmp_dir_path):
+        shutil.rmtree(tmp_dir_path)
     
     print('Your task has been completed!')
     
